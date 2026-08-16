@@ -1,0 +1,206 @@
+{
+	"data": {
+		"matches": [
+			{
+				"attributes": {
+					"id": "fec2aaab-bcf0-4192-b43f-df5376c704a1"
+				},
+				"metadata": {
+					"timestamp": "2026-08-15T17:55:37.221+00:00",
+					"result": "victory",
+					"MapName": "Split"
+				}
+			},
+			{
+				"attributes": {
+					"id": "6bee3e5f-1a40-4ab2-8dfc-92bae2f48841"
+				},
+				"metadata": {
+					"timestamp": "2026-08-15T17:13:41.147+00:00",
+					"result": "victory",
+					"MapName": "Breeze"
+				}
+			},
+			{
+				"attributes": {
+					"id": "bbffcea6-cabf-4c02-b8ae-5b549b40d700"
+				},
+				"metadata": {
+					"timestamp": "2026-08-15T16:26:46.125+00:00",
+					"result": "victory",
+					"MapName": "Summit"
+				}
+			},
+			{
+				"attributes": {
+					"id": "9cee8eb1-3816-44c2-85b8-5c1dfa814ac2"
+				},
+				"metadata": {
+					"timestamp": "2026-08-14T17:59:43.126+00:00",
+					"result": "victory",
+					"MapName": "Sunset"
+				}
+			},
+			{
+				"attributes": {
+					"id": "807e4ec5-3af4-43ce-93d3-7b4fe33fcdd1"
+				},
+				"metadata": {
+					"timestamp": "2026-08-14T17:24:39.571+00:00",
+					"result": "defeat",
+					"MapName": "Split"
+				}
+			},
+			{
+				"attributes": {
+					"id": "d8d62daa-b169-4db7-a293-0b506ee169fc"
+				},
+				"metadata": {
+					"timestamp": "2026-08-14T16:48:30.846+00:00",
+					"result": "victory",
+					"MapName": "Lotus"
+				}
+			},
+			{
+				"attributes": {
+					"id": "48369e29-5a39-4695-8cbb-483f4afc80d8"
+				},
+				"metadata": {
+					"timestamp": "2026-08-13T17:29:26.758+00:00",
+					"result": "victory",
+					"MapName": "Split"
+				}
+			},
+			{
+				"attributes": {
+					"id": "e64487f9-cf14-4f9d-bf2c-59a6bb0aca8b"
+				},
+				"metadata": {
+					"timestamp": "2026-08-13T16:49:49.278+00:00",
+					"result": "victory",
+					"MapName": "Ascent"
+				}
+			},
+			{
+				"attributes": {
+					"id": "c0377065-2855-4e9e-b917-c3fab0cfdeb1"
+				},
+				"metadata": {
+					"timestamp": "2026-08-12T17:28:35.536+00:00",
+					"result": "tied",
+					"MapName": "Summit"
+				}
+			},
+			{
+				"attributes": {
+					"id": "08fcc908-5f87-4ea7-a64b-37abb0dbb775"
+				},
+				"metadata": {
+					"timestamp": "2026-08-12T16:51:34.25+00:00",
+					"result": "victory",
+					"MapName": "Sunset"
+				}
+			},
+			{
+				"attributes": {
+					"id": "ec1d132a-8336-4f62-a877-e371a7d569ec"
+				},
+				"metadata": {
+					"timestamp": "2026-08-11T17:39:56.227+00:00",
+					"result": "victory",
+					"MapName": "Haven"
+				}
+			},
+			{
+				"attributes": {
+					"id": "3b818974-4cf6-4946-bf64-2d27debe05eb"
+				},
+				"metadata": {
+					"timestamp": "2026-08-11T16:48:22.979+00:00",
+					"result": "defeat",
+					"MapName": "Ascent"
+				}
+			},
+			{
+				"attributes": {
+					"id": "d9f72575-9a5c-4a02-94e3-8a09a6873d08"
+				},
+				"metadata": {
+					"timestamp": "2026-08-10T17:30:38.165+00:00",
+					"result": "defeat",
+					"MapName": "Haven"
+				}
+			},
+			{
+				"attributes": {
+					"id": "cf68c61e-9915-4054-b665-99059e54ec18"
+				},
+				"metadata": {
+					"timestamp": "2026-08-10T16:43:00.755+00:00",
+					"result": "victory",
+					"MapName": "Summit"
+				}
+			},
+			{
+				"attributes": {
+					"id": "6e3d5383-2dde-4804-a878-d2ac38f6709e"
+				},
+				"metadata": {
+					"timestamp": "2026-08-09T17:33:22.207+00:00",
+					"result": "defeat",
+					"MapName": "Sunset"
+				}
+			},
+			{
+				"attributes": {
+					"id": "486d6373-8298-4296-a6ef-854cda14ea8f"
+				},
+				"metadata": {
+					"timestamp": "2026-08-09T16:43:49.119+00:00",
+					"result": "victory",
+					"MapName": "Ascent"
+				}
+			},
+			{
+				"attributes": {
+					"id": "e635fe67-91b8-4f13-b583-75b6d16dd84f"
+				},
+				"metadata": {
+					"timestamp": "2026-08-08T17:27:28.153+00:00",
+					"result": "defeat",
+					"MapName": "Lotus"
+				}
+			},
+			{
+				"attributes": {
+					"id": "76d45139-f052-410c-b62e-ae3731c7f849"
+				},
+				"metadata": {
+					"timestamp": "2026-08-08T16:42:24.28+00:00",
+					"result": "victory",
+					"MapName": "Split"
+				}
+			},
+			{
+				"attributes": {
+					"id": "5239ea4c-2c62-48c9-8efe-295d23b7681a"
+				},
+				"metadata": {
+					"timestamp": "2026-08-07T17:58:08.046+00:00",
+					"result": "victory",
+					"MapName": "Summit"
+				}
+			},
+			{
+				"attributes": {
+					"id": "ec245529-e45e-455a-882c-b45de5e60a98"
+				},
+				"metadata": {
+					"timestamp": "2026-08-07T17:12:51.735+00:00",
+					"result": "victory",
+					"MapName": "Breeze"
+				}
+			}
+		]
+	}
+}

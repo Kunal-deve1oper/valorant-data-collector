@@ -1,0 +1,338 @@
+{
+  "status": 200,
+  "data": {
+    "name": "Krypto",
+    "tag": "4284",
+    "current_data": {
+      "currenttier": 14,
+      "currenttier_patched": "",
+      "images": {
+        "small": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/14/smallicon.png",
+        "large": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/14/largeicon.png",
+        "triangle_down": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/14/ranktriangledownicon.png",
+        "triangle_up": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/14/ranktriangleupicon.png"
+      },
+      "ranking_in_tier": 59,
+      "mmr_change_to_last_game": 17,
+      "elo": 1159,
+      "old": false
+    },
+    "highest_rank": {
+      "old": true,
+      "tier": 14,
+      "patched_tier": "Gold 3",
+      "season": "e4a2"
+    },
+    "by_season": {
+      "e6a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e6a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e6a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e5a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e5a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e5a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e4a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e4a2": {
+        "error": "",
+        "wins": 5,
+        "number_of_games": 7,
+        "final_rank": 14,
+        "final_rank_patched": "Gold 3",
+        "act_rank_wins": [
+          {
+            "patched_tier": "Gold 3",
+            "tier": 14
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          }
+        ],
+        "old": true
+      },
+      "e4a1": {
+        "error": "",
+        "wins": 3,
+        "number_of_games": 7,
+        "final_rank": 12,
+        "final_rank_patched": "Gold 1",
+        "act_rank_wins": [
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Silver 2",
+            "tier": 10
+          },
+          {
+            "patched_tier": "Silver 2",
+            "tier": 10
+          },
+          {
+            "patched_tier": "Unrated",
+            "tier": 0
+          }
+        ],
+        "old": true
+      },
+      "e3a3": {
+        "error": "",
+        "wins": 4,
+        "number_of_games": 6,
+        "final_rank": 12,
+        "final_rank_patched": "Gold 1",
+        "act_rank_wins": [
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          }
+        ],
+        "old": true
+      },
+      "e3a2": {
+        "error": "",
+        "wins": 19,
+        "number_of_games": 42,
+        "final_rank": 12,
+        "final_rank_patched": "Gold 1",
+        "act_rank_wins": [
+          {
+            "patched_tier": "Gold 1",
+            "tier": 12
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 3",
+            "tier": 11
+          },
+          {
+            "patched_tier": "Silver 2",
+            "tier": 10
+          },
+          {
+            "patched_tier": "Silver 1",
+            "tier": 9
+          },
+          {
+            "patched_tier": "Silver 1",
+            "tier": 9
+          },
+          {
+            "patched_tier": "Unrated",
+            "tier": 0
+          },
+          {
+            "patched_tier": "Unrated",
+            "tier": 0
+          }
+        ],
+        "old": true
+      },
+      "e3a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e2a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e2a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e2a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e1a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e1a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e1a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      }
+    },
+    "wins": 0,
+    "number_of_games": 0,
+    "final_rank": 0,
+    "final_rank_patched": "",
+    "act_rank_wins": null,
+    "old": false
+  },
+  "errors": null
+}

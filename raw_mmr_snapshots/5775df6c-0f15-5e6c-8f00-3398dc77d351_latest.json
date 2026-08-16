@@ -1,0 +1,198 @@
+{
+  "status": 200,
+  "data": {
+    "name": "GaramheGaramhe",
+    "tag": "ahhh",
+    "current_data": {
+      "currenttier": 13,
+      "currenttier_patched": "",
+      "images": {
+        "small": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/13/smallicon.png",
+        "large": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/13/largeicon.png",
+        "triangle_down": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/13/ranktriangledownicon.png",
+        "triangle_up": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/13/ranktriangleupicon.png"
+      },
+      "ranking_in_tier": 83,
+      "mmr_change_to_last_game": 16,
+      "elo": 1083,
+      "old": false
+    },
+    "highest_rank": {
+      "old": false,
+      "tier": 14,
+      "patched_tier": "Gold 3",
+      "season": "e10a6"
+    },
+    "by_season": {
+      "e6a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e6a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e6a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e5a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e5a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e5a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e4a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e4a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e4a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e3a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e3a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e3a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e2a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e2a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e2a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e1a3": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e1a2": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      },
+      "e1a1": {
+        "error": "No data available",
+        "wins": 0,
+        "number_of_games": 0,
+        "final_rank": 0,
+        "final_rank_patched": "",
+        "act_rank_wins": null,
+        "old": false
+      }
+    },
+    "wins": 0,
+    "number_of_games": 0,
+    "final_rank": 0,
+    "final_rank_patched": "",
+    "act_rank_wins": null,
+    "old": false
+  },
+  "errors": null
+}
