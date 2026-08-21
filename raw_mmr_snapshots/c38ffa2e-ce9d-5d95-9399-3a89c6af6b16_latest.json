@@ -12,9 +12,9 @@
         "triangle_down": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/13/ranktriangledownicon.png",
         "triangle_up": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/13/ranktriangleupicon.png"
       },
-      "ranking_in_tier": 77,
-      "mmr_change_to_last_game": 12,
-      "elo": 1077,
+      "ranking_in_tier": 45,
+      "mmr_change_to_last_game": -20,
+      "elo": 1045,
       "old": false
     },
     "highest_rank": {
