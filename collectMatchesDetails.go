@@ -898,7 +898,7 @@ func CollectMatchesData() {
 	printMemStats("Start Collection")
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Error loading .env file")
 	}
 	apiKey := os.Getenv("API_KEY")
 	botToken := os.Getenv("DISCORD_BOT_TOKEN")
