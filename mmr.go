@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"path/filepath"
 	"time"
+	"valorant-scrapper/discord"
 
 	"github.com/joho/godotenv"
 	govapi "github.com/yldshv/go-valorant-api"
@@ -19,12 +20,19 @@ type PlayerDetails struct {
 }
 
 func Mmr() {
-
+	printMemStats("Start MMr")
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	apiKey := os.Getenv("API_KEY")
+	botToken := os.Getenv("DISCORD_BOT_TOKEN")
+	channelID := os.Getenv("DISCORD_MMR_CHANNEL_ID")
+
+	if botToken == "" || channelID == "" {
+		log.Fatal("Missing Discord credentials in .env")
+	}
+
 	vapi := govapi.New(govapi.WithKey(apiKey))
 
 	playerList := []PlayerDetails{
@@ -36,6 +44,19 @@ func Mmr() {
 		{Name: "GaramheGaramhe", Tag: "ahhh", Puuid: "5775df6c-0f15-5e6c-8f00-3398dc77d351"},
 		{Name: "NoSheat", Tag: "6917", Puuid: "f91099e8-a14b-5913-b66b-13717562a6eb"},
 		{Name: "Protein Chut", Tag: "8149", Puuid: "c38ffa2e-ce9d-5d95-9399-3a89c6af6b16"},
+	}
+
+	msgs, err := discord.FetchMessagesPage(&http.Client{}, botToken, channelID, "", 10)
+	if err != nil {
+		log.Fatalf("Unable to fetch response %v", err)
+	}
+
+	discordMsgID := make(map[string]string)
+
+	for _, msg := range msgs {
+		for _, file := range msg.Attachments {
+			discordMsgID[file.Filename] = msg.ID
+		}
 	}
 
 	for _, item := range playerList {
@@ -69,9 +90,21 @@ func Mmr() {
 			fmt.Println("error marshaling mmr for")
 		}
 
-		outPath := filepath.Join("raw_mmr_snapshots", item.Puuid+"_latest.json")
-		if err := os.WriteFile(outPath, raw, 0644); err != nil {
-			fmt.Println("error writing mmr snapshot for", ":", err)
+		filename := item.Puuid + "_latest.json"
+
+		if len(discordMsgID) != 0 {
+			err = discord.DeleteMessage(&http.Client{}, botToken, channelID, discordMsgID[filename])
+			if err != nil {
+				log.Printf("Failed to delete file %s with id %s beacuse of %v\n", filename, discordMsgID[filename], err)
+			}
 		}
+
+		id, err := discord.PostMessageWithAttachment(&http.Client{}, botToken, channelID, filename, raw, "")
+		if err != nil {
+			log.Printf("Failed to upload file to discord beacuse of %v", err)
+		}
+
+		log.Printf("File uploaded to discord with id %s", id)
 	}
+	printMemStats("End MMR")
 }

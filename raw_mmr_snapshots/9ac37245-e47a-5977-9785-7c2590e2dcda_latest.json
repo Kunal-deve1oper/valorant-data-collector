@@ -4,17 +4,17 @@
     "name": "SC4R",
     "tag": "LORD",
     "current_data": {
-      "currenttier": 16,
+      "currenttier": 15,
       "currenttier_patched": "",
       "images": {
-        "small": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/16/smallicon.png",
-        "large": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/16/largeicon.png",
-        "triangle_down": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/16/ranktriangledownicon.png",
-        "triangle_up": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/16/ranktriangleupicon.png"
+        "small": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/15/smallicon.png",
+        "large": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/15/largeicon.png",
+        "triangle_down": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/15/ranktriangledownicon.png",
+        "triangle_up": "https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/15/ranktriangleupicon.png"
       },
-      "ranking_in_tier": 0,
-      "mmr_change_to_last_game": -17,
-      "elo": 1300,
+      "ranking_in_tier": 37,
+      "mmr_change_to_last_game": -19,
+      "elo": 1237,
       "old": false
     },
     "highest_rank": {

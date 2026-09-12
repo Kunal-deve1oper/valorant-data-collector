@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
+	"valorant-scrapper/discord"
 
 	"github.com/joho/godotenv"
 )
@@ -836,12 +839,75 @@ type MatchResponses struct {
 	Errors []Error `json:"errors"`
 }
 
+func appendProcessedID(filename, matchID, botToken, channelID string) {
+	msg, err := discord.FetchLatestMessage(&http.Client{}, botToken, channelID)
+	if err != nil {
+		log.Printf("Failed to fetch %s from Discord: %v", filename, err)
+	}
+	var file []byte
+	for _, data := range msg.Attachments {
+		file, err = discord.DownloadAttachment(&http.Client{}, data.URL)
+		if err != nil {
+			log.Printf("Failed to download %s from Discord: %v", filename, err)
+		}
+	}
+	formattedID := matchID + "\n"
+	file = append(file, []byte(formattedID)...)
+	if len(msg.Attachments) != 0 {
+		err = discord.DeleteMessage(&http.Client{}, botToken, channelID, msg.ID)
+		if err != nil {
+			log.Printf("Failed to delete file %s with id %s beacuse of %v\n", filename, msg.ID, err)
+		}
+	}
+
+	id, err := discord.PostMessageWithAttachment(&http.Client{}, botToken, channelID, filename, file, "")
+	if err != nil {
+		log.Printf("Failed to upload file to discord beacuse of %v", err)
+	}
+
+	log.Printf("File uploaded to discord with id %s", id)
+}
+
+func loadProcessedIDs(filename, botToken, channelID string) map[string]bool {
+	processed := make(map[string]bool)
+	msg, err := discord.FetchLatestMessage(&http.Client{}, botToken, channelID)
+	if err != nil {
+		log.Printf("Failed to fetch %s from Discord: %v", filename, err)
+		return processed
+	}
+	var file []byte
+	for _, data := range msg.Attachments {
+		file, err = discord.DownloadAttachment(&http.Client{}, data.URL)
+		if err != nil {
+			log.Printf("Failed to download %s from Discord: %v", filename, err)
+			return processed
+		}
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(file))
+	for scanner.Scan() {
+		id := strings.TrimSpace(scanner.Text())
+		if id != "" {
+			processed[id] = true
+		}
+	}
+	return processed
+}
+
 func CollectMatchesData() {
+	printMemStats("Start Collection")
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	apiKey := os.Getenv("API_KEY")
+	botToken := os.Getenv("DISCORD_BOT_TOKEN")
+	channelID := os.Getenv("DISCORD_MATCHES_CHANNEL_ID")
+	processedMatchesID := os.Getenv("DISCORD_PROCESSED_MATCHES_CHANNEL_ID")
+
+	if botToken == "" || channelID == "" {
+		log.Fatal("Missing Discord credentials in .env")
+	}
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
@@ -849,28 +915,20 @@ func CollectMatchesData() {
 
 	rate := &Rate{}
 
-	entries, err := os.ReadDir("match_id")
-	if err != nil {
-		panic(err)
-	}
+	// 1. Load previously processed Match IDs to prevent duplicate uploads
+	processedIDs := loadProcessedIDs("processed_matches.txt", botToken, processedMatchesID)
 
-	count := 0
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			count++
-		}
-	}
-
-	url := fmt.Sprintf("https://api.henrikdev.xyz/valorant/v3/by-puuid/matches/%v/%v%v", "ap", "462a8089-15f8-5365-8e52-e0759a870abe", "?mode=competitive&size=10")
+	url := fmt.Sprintf("https://api.henrikdev.xyz/valorant/v3/by-puuid/matches/%v/%v%v", "ap", "59bae8f3-025c-5dcc-9a1c-c903279e4145", "?mode=competitive&size=10")
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
+		return
 	}
 
 	req.Header.Add("Authorization", apiKey)
 
-	if rate.Remaining < 4 {
+	if rate.Remaining < 4 && rate.Remaining != 0 { // Added != 0 so it doesn't sleep on first run
 		log.Printf("Sleeping for %d second", rate.Reset)
 		time.Sleep(time.Duration(rate.Reset) * time.Second)
 	}
@@ -878,7 +936,9 @@ func CollectMatchesData() {
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Printf("HTTP request failed: %v", err)
+		return
 	}
+	defer resp.Body.Close()
 
 	rate.Used, _ = strconv.Atoi(resp.Header.Get("x-ratelimit-limit"))
 	rate.Remaining, _ = strconv.Atoi(resp.Header.Get("x-ratelimit-remaining"))
@@ -886,38 +946,38 @@ func CollectMatchesData() {
 
 	var matchRes MatchResponses
 	decodeErr := json.NewDecoder(resp.Body).Decode(&matchRes)
-
 	if decodeErr != nil {
 		log.Printf("JSON decode error: %v", decodeErr)
+		return
 	}
-
-	resp.Body.Close()
 
 	skipped := 0
 
 	for _, data := range matchRes.Data {
-		outPath := filepath.Join("raw_matches", data.Metadata.Matchid+".json")
+		matchID := data.Metadata.Matchid
 
-		if _, err := os.Stat(outPath); err == nil {
+		// Check if we already uploaded this match to Discord
+		if processedIDs[matchID] {
 			skipped++
 			continue
 		}
 
 		if matchRes.Errors != nil {
-			log.Printf("%v:%v", err, matchRes.Errors)
+			log.Printf("API Errors: %v", matchRes.Errors)
 			continue
 		}
 
 		var matchDetails MatchDetails
-
 		matchDetails.MatchData.Data = data
 		matchDetails.MatchData.Errors = matchRes.Errors
 		matchDetails.MatchData.Status = matchRes.Status
+
 		set := false
 		for _, player := range data.Players.Blue {
 			if player.Puuid == "462a8089-15f8-5365-8e52-e0759a870abe" {
 				matchDetails.HasWon = data.Teams.Blue.HasWon
 				set = true
+				break // slightly optimized
 			}
 		}
 		if !set {
@@ -926,18 +986,26 @@ func CollectMatchesData() {
 
 		outputJSON, err := json.MarshalIndent(matchDetails, "", "\t")
 		if err != nil {
-			log.Fatalf("Failed to marshal struct to JSON: %v", err)
+			log.Printf("Failed to marshal struct to JSON: %v", err)
+			continue
 		}
 
-		err = os.WriteFile(outPath, outputJSON, 0644)
+		filename := matchID + ".json"
+
+		// 2. Upload to Discord
+		id, err := discord.PostMessageWithAttachment(&http.Client{}, botToken, channelID, filename, outputJSON, "added file")
 		if err != nil {
-			log.Fatalf("Failed to write to file: %v", err)
+			log.Printf("Failed to upload %s to Discord: %v", filename, err)
+			continue
 		}
 
-		log.Printf("Successfully saved data to %s\n", outPath)
+		log.Printf("Successfully uploaded %s to Discord with ID %s\n", filename, id)
 
-		log.Printf("%v\n", rate)
-
+		// 3. Mark as processed locally
+		appendProcessedID("processed_matches.txt", matchID, botToken, processedMatchesID)
+		processedIDs[matchID] = true // update local map for current run
 	}
-	log.Printf("Skipped %d\n", skipped)
+
+	log.Printf("Skipped %d already processed matches\n", skipped)
+	printMemStats("End Collection")
 }

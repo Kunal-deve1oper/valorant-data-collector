@@ -1,29 +1,46 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
+	"net/http"
 	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // ---------------------------------------------------------------------------
 // CONFIG
+//
+// Nothing is read from or written to local disk anymore. Everything lives in
+// three Discord channels, set via env vars:
+//
+//   DISCORD_BOT_TOKEN
+//   DISCORD_MATCHES_CHANNEL_ID  — collector posts one {matchid}.json per match
+//   DISCORD_MMR_CHANNEL_ID      — collector posts {puuid}_latest.json snapshots
+//   DISCORD_STORE_CHANNEL_ID    — this program's own scratch space: holds the
+//                                 current sync_state.json and valorant_details.csv
+//                                 as attachments on the two most recent messages
+//                                 it posted there. Nothing else should post here.
+//
+// Bot needs: View Channel + Read Message History on the matches/mmr channels,
+// and View Channel + Read Message History + Send Messages + Attach Files +
+// Manage Messages (to delete its own superseded state/csv messages) on the
+// store channel.
 // ---------------------------------------------------------------------------
 
-const (
-	rawMatchesDir = "raw_matches"       // output of the collector script
-	rawMMRDir     = "raw_mmr_snapshots" // output of the collector script
-	csvPath       = "valorant_details.csv"
-)
+const discordAPIBase = "https://discord.com/api/v10"
+const discordCSVFilename = "valorant_details.csv"
+const discordStateFilename = "sync_state.json"
 
-// Your 5 PUUIDs. Fill these in (same as the collector script's stack, resolved
-// to PUUIDs — you can copy them from a raw match file's all_players list, or
-// print them out when the collector runs).
 var allyPUUIDs = map[string]bool{
 	"9ac37245-e47a-5977-9785-7c2590e2dcda": true,
 	"59bae8f3-025c-5dcc-9a1c-c903279e4145": true,
@@ -51,12 +68,9 @@ var healerAgents = map[string]bool{
 }
 
 // ---------------------------------------------------------------------------
-// RAW DATA TYPES (mirrors what the collector script wrote to disk)
+// RAW DATA TYPES (unchanged — mirrors what the collector posts as JSON)
 // ---------------------------------------------------------------------------
 
-// RawFile mirrors the actual shape of files in raw_matches/: a top-level
-// hasWon flag (from the anchor account's perspective) plus the full API
-// response nested under matchData.data.
 type RawFile struct {
 	HasWon    bool `json:"hasWon"`
 	MatchData struct {
@@ -69,7 +83,7 @@ type MatchData struct {
 	Metadata     Metadata `json:"metadata"`
 	Players      Players  `json:"players"`
 	Teams        Teams    `json:"teams"`
-	AnchorHasWon bool     `json:"-"` // populated from the file's top-level hasWon field
+	AnchorHasWon bool     `json:"-"`
 }
 
 type Metadata struct {
@@ -123,16 +137,67 @@ type TeamResult struct {
 	RoundsLost int  `json:"rounds_lost"`
 }
 
-// MMR snapshot, as written by the collector script (one "latest" file per PUUID)
-type MMRSnapshot struct {
+// mmrSnapshotFile mirrors the collector's MMR JSON. The puuid itself comes
+// from the attachment filename ({puuid}_latest.json), not this struct.
+type mmrSnapshotFile struct {
 	Data struct {
-		Name        string `json:"name"`
-		Tag         string `json:"tag"`
 		CurrentData struct {
-			Currenttier   int `json:"currenttier"`
 			RankingInTier int `json:"ranking_in_tier"`
 		} `json:"current_data"`
 	} `json:"data"`
+}
+
+// ---------------------------------------------------------------------------
+// ROLLING STATE — replaces full-history rescans. Persisted to Discord as
+// sync_state.json between runs.
+// ---------------------------------------------------------------------------
+
+type RollingState struct {
+	Streak         int                `json:"streak"`
+	CurrentDay     string             `json:"current_day"`
+	GamesToday     int                `json:"games_today"`
+	RRByPUUID      map[string]float64 `json:"rr_by_puuid"`
+	LastMatchMsgID string             `json:"last_match_msg_id"`
+	LastMMRMsgID   string             `json:"last_mmr_msg_id"`
+}
+
+func newRollingState() *RollingState {
+	return &RollingState{RRByPUUID: map[string]float64{}}
+}
+
+// consumeForRow returns the streak/games-played-today values that belong on
+// THIS match's row (computed from everything strictly before it), then
+// updates the running state so the next match sees this one's result.
+func (s *RollingState) consumeForRow(won bool, date string) (streakForRow int, gamesTodayForRow int) {
+	if s.CurrentDay != date {
+		s.CurrentDay = date
+		s.GamesToday = 0
+	}
+	s.GamesToday++
+	gamesTodayForRow = s.GamesToday
+
+	streakForRow = s.Streak
+	switch {
+	case s.Streak == 0:
+		if won {
+			s.Streak = 1
+		} else {
+			s.Streak = -1
+		}
+	case (s.Streak > 0 && won) || (s.Streak < 0 && !won):
+		if won {
+			s.Streak++
+		} else {
+			s.Streak--
+		}
+	default:
+		if won {
+			s.Streak = 1
+		} else {
+			s.Streak = -1
+		}
+	}
+	return
 }
 
 // ---------------------------------------------------------------------------
@@ -140,147 +205,219 @@ type MMRSnapshot struct {
 // ---------------------------------------------------------------------------
 
 func Transform() {
-	matches, err := loadRawMatches(rawMatchesDir)
+	printMemStats("Start transform")
+
+	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("error loading raw matches:", err)
+		log.Fatal("Error loading .env file")
+	}
+	token := os.Getenv("DISCORD_BOT_TOKEN")
+	matchesChannel := os.Getenv("DISCORD_MATCHES_CHANNEL_ID")
+	mmrChannel := os.Getenv("DISCORD_MMR_CHANNEL_ID")
+	storeChannel := os.Getenv("DISCORD_STORE_CHANNEL_ID")
+	if token == "" || matchesChannel == "" || mmrChannel == "" || storeChannel == "" {
+		fmt.Println("DISCORD_BOT_TOKEN / DISCORD_MATCHES_CHANNEL_ID / DISCORD_MMR_CHANNEL_ID / DISCORD_STORE_CHANNEL_ID must all be set")
 		os.Exit(1)
 	}
-	if len(matches) == 0 {
-		fmt.Println("no raw matches found in", rawMatchesDir)
-		os.Exit(1)
-	}
 
-	// oldest first, so rolling stats (streak, games_played_today) compute correctly
-	sort.Slice(matches, func(i, j int) bool {
-		return matches[i].Metadata.GameStart < matches[j].Metadata.GameStart
-	})
+	client := &http.Client{Timeout: 30 * time.Second}
 
-	rrByPUUID := loadRRSnapshots(rawMMRDir)
-
-	existingIDs, err := loadExistingMatchIDs(csvPath)
+	// --- load state ---
+	state := newRollingState()
+	stateBytes, stateMsgID, stateFound, err := loadLatestDiscordFile(client, token, storeChannel, discordStateFilename)
 	if err != nil {
-		fmt.Println("error reading existing csv:", err)
+		fmt.Println("error loading state from discord:", err)
 		os.Exit(1)
 	}
+	if stateFound {
+		if err := json.Unmarshal(stateBytes, state); err != nil {
+			fmt.Println("error parsing state:", err)
+			os.Exit(1)
+		}
+		if state.RRByPUUID == nil {
+			state.RRByPUUID = map[string]float64{}
+		}
+	}
 
-	f, err := os.OpenFile(csvPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// --- load existing CSV (for dedupe + to append new rows to) ---
+	csvBytes, csvMsgID, csvFound, err := loadLatestDiscordFile(client, token, storeChannel, discordCSVFilename)
 	if err != nil {
-		fmt.Println("error opening csv:", err)
+		fmt.Println("error loading csv from discord:", err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	existingIDs := map[string]bool{}
+	if csvFound {
+		r := csv.NewReader(bytes.NewReader(csvBytes))
+		rows, err := r.ReadAll()
+		if err != nil {
+			fmt.Println("error parsing existing csv:", err)
+			os.Exit(1)
+		}
+		for i, row := range rows {
+			if i == 0 || len(row) == 0 {
+				continue
+			}
+			existingIDs[row[0]] = true
+		}
+	}
 
-	if stat, _ := f.Stat(); stat.Size() == 0 {
-		w := csv.NewWriter(f)
+	var outBuf bytes.Buffer
+	outBuf.Write(csvBytes)
+	if !csvFound {
+		w := csv.NewWriter(&outBuf)
 		w.Write(csvHeader)
 		w.Flush()
 	}
+	writer := csv.NewWriter(&outBuf)
 
-	writer := csv.NewWriter(f)
-	defer writer.Flush()
+	// --- sync MMR channel: updates state.RRByPUUID incrementally ---
+	mmrCount, newMMRWatermark, err := syncDiscordMMR(client, token, mmrChannel, state.LastMMRMsgID, state.RRByPUUID)
+	if err != nil {
+		fmt.Println("error syncing mmr channel:", err)
+		os.Exit(1)
+	}
+	state.LastMMRMsgID = newMMRWatermark
 
-	var processed []MatchData // history accumulated as we go, for rolling stats
-	written, skipped := 0, 0
+	// --- sync matches channel: builds + writes new rows incrementally ---
+	written, skipped, newMatchWatermark, err := syncDiscordMatches(client, token, matchesChannel, state.LastMatchMsgID, existingIDs, state, writer)
+	if err != nil {
+		fmt.Println("error syncing matches channel:", err)
+		os.Exit(1)
+	}
+	state.LastMatchMsgID = newMatchWatermark
+	writer.Flush()
 
-	for _, m := range matches {
-		if existingIDs[m.Metadata.Matchid] {
-			processed = append(processed, m) // still needed for rolling stats continuity
-			skipped++
-			continue
+	fmt.Printf("discord sync: %d new mmr snapshots, wrote %d new rows, skipped %d duplicates\n", mmrCount, written, skipped)
+
+	// --- persist CSV (only if it changed) and state back to Discord ---
+	if written > 0 {
+		if _, err := postDiscordMessageWithFile(client, token, storeChannel, discordCSVFilename, outBuf.Bytes()); err != nil {
+			fmt.Println("error saving csv to discord:", err)
+			os.Exit(1)
 		}
-
-		row := buildRow(m, processed, rrByPUUID)
-		if err := writer.Write(row); err != nil {
-			fmt.Println("error writing row:", err)
-			continue
+		if csvMsgID != "" {
+			if err := deleteDiscordMessage(client, token, storeChannel, csvMsgID); err != nil {
+				fmt.Println("warning: failed to delete old csv message:", err)
+			}
 		}
-		writer.Flush()
-
-		processed = append(processed, m)
-		written++
 	}
 
-	fmt.Printf("wrote %d new rows, skipped %d already in csv\n", written, skipped)
+	stateOut, _ := json.Marshal(state)
+	if _, err := postDiscordMessageWithFile(client, token, storeChannel, discordStateFilename, stateOut); err != nil {
+		fmt.Println("error saving state to discord:", err)
+		os.Exit(1)
+	}
+	if stateMsgID != "" {
+		if err := deleteDiscordMessage(client, token, storeChannel, stateMsgID); err != nil {
+			fmt.Println("warning: failed to delete old state message:", err)
+		}
+	}
+
+	printMemStats("End Transform")
 }
 
 // ---------------------------------------------------------------------------
-// LOADING RAW DATA
+// DISCORD SYNC — matches and MMR
 // ---------------------------------------------------------------------------
 
-func loadRawMatches(dir string) ([]MatchData, error) {
-	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
-	if err != nil {
-		return nil, err
-	}
-	var matches []MatchData
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			fmt.Println("skipping unreadable file", f, ":", err)
-			continue
+// syncDiscordMMR walks new messages in the MMR channel (oldest to newest) and
+// updates rrByPUUID in place. The puuid comes from the "{puuid}_latest.json"
+// attachment filename.
+func syncDiscordMMR(client *http.Client, token, channelID, after string, rrByPUUID map[string]float64) (count int, watermark string, err error) {
+	watermark = after
+	for {
+		msgs, ferr := fetchDiscordMessagesAfter(client, token, channelID, watermark)
+		if ferr != nil {
+			return count, watermark, ferr
 		}
-		var raw RawFile
-		if err := json.Unmarshal(b, &raw); err != nil {
-			fmt.Println("skipping unparseable file", f, ":", err)
-			continue
+		if len(msgs) == 0 {
+			break
 		}
-		m := raw.MatchData.Data
-		m.AnchorHasWon = raw.HasWon
-		matches = append(matches, m)
+		sortMessagesByIDAscending(msgs)
+		for _, msg := range msgs {
+			for _, att := range msg.Attachments {
+				if !strings.HasSuffix(att.Filename, "_latest.json") {
+					continue
+				}
+				puuid := strings.TrimSuffix(att.Filename, "_latest.json")
+				body, derr := downloadDiscordAttachment(client, att.URL)
+				if derr != nil {
+					return count, watermark, derr
+				}
+				var snap mmrSnapshotFile
+				if uerr := json.Unmarshal(body, &snap); uerr != nil {
+					fmt.Println("skipping unparseable mmr snapshot", att.Filename, ":", uerr)
+					continue
+				}
+				rrByPUUID[puuid] = float64(snap.Data.CurrentData.RankingInTier)
+				count++
+			}
+			watermark = msg.ID
+		}
+		if len(msgs) < 100 {
+			break
+		}
 	}
-	return matches, nil
+	return count, watermark, nil
 }
 
-// loadRRSnapshots reads the "latest" MMR snapshot per PUUID. Note: this gives
-// each player's RANK RIGHT NOW, not their rank at the time of each historical
-// match. It's accurate for matches close to when the collector last ran, and
-// approximate for older backfilled matches. For true historical RR per match,
-// extend the collector to call GetMMRHistoryByPUUID and match by match_id.
-func loadRRSnapshots(dir string) map[string]MMRSnapshot {
-	result := map[string]MMRSnapshot{}
-	files, err := filepath.Glob(filepath.Join(dir, "*_latest.json"))
-	if err != nil {
-		return result
-	}
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			continue
+// syncDiscordMatches walks new messages in the matches channel (oldest to
+// newest — required for rolling stats to stay correct), parses each match
+// JSON directly in memory, writes a CSV row immediately, and discards the
+// bytes. Assumes the collector posts matches in the order they were played.
+func syncDiscordMatches(client *http.Client, token, channelID, after string, existingIDs map[string]bool, state *RollingState, writer *csv.Writer) (written, skipped int, watermark string, err error) {
+	watermark = after
+	for {
+		msgs, ferr := fetchDiscordMessagesAfter(client, token, channelID, watermark)
+		if ferr != nil {
+			return written, skipped, watermark, ferr
 		}
-		var snap MMRSnapshot
-		if err := json.Unmarshal(b, &snap); err != nil {
-			continue
+		if len(msgs) == 0 {
+			break
 		}
-		puuid := filepath.Base(f)
-		puuid = puuid[:len(puuid)-len("_latest.json")]
-		result[puuid] = snap
-	}
-	return result
-}
+		sortMessagesByIDAscending(msgs)
+		for _, msg := range msgs {
+			for _, att := range msg.Attachments {
+				if !strings.HasSuffix(att.Filename, ".json") {
+					continue
+				}
+				body, derr := downloadDiscordAttachment(client, att.URL)
+				if derr != nil {
+					return written, skipped, watermark, derr
+				}
+				var raw RawFile
+				if uerr := json.Unmarshal(body, &raw); uerr != nil {
+					fmt.Println("skipping unparseable match file", att.Filename, ":", uerr)
+					continue
+				}
+				m := raw.MatchData.Data
+				m.AnchorHasWon = raw.HasWon
 
-func loadExistingMatchIDs(path string) (map[string]bool, error) {
-	ids := map[string]bool{}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return ids, nil
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
+				if existingIDs[m.Metadata.Matchid] {
+					skipped++
+					continue
+				}
 
-	r := csv.NewReader(f)
-	rows, err := r.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-	for i, row := range rows {
-		if i == 0 || len(row) == 0 {
-			continue
+				allies, _ := splitTeams(m.Players.AllPlayers)
+				won := allyWon(m, allies)
+				date, _, _ := parseTimestamp(m.Metadata.GameStart)
+				rowStreak, rowGamesToday := state.consumeForRow(won, date)
+
+				row := buildRow(m, rowStreak, rowGamesToday, state.RRByPUUID)
+				if werr := writer.Write(row); werr != nil {
+					fmt.Println("error writing row:", werr)
+					continue
+				}
+				existingIDs[m.Metadata.Matchid] = true
+				written++
+			}
+			watermark = msg.ID
 		}
-		ids[row[0]] = true
+		if len(msgs) < 100 {
+			break
+		}
 	}
-	return ids, nil
+	return written, skipped, watermark, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -302,15 +439,12 @@ var csvHeader = []string{
 	"delta_rr", "rounds_won", "rounds_lost", "round_margin",
 }
 
-func buildRow(match MatchData, history []MatchData, rrByPUUID map[string]MMRSnapshot) []string {
+func buildRow(match MatchData, rowStreak int, rowGamesToday int, rrByPUUID map[string]float64) []string {
 	allies, enemies := splitTeams(match.Players.AllPlayers)
 
-	team := teamRed(match.Players.AllPlayers)
-	startingSide := ""
-	if team {
+	startingSide := "defense"
+	if teamRed(match.Players.AllPlayers) {
 		startingSide = "attack"
-	} else {
-		startingSide = "defense"
 	}
 
 	allyAvgRank := avgTier(allies)
@@ -351,9 +485,9 @@ func buildRow(match MatchData, history []MatchData, rrByPUUID map[string]MMRSnap
 		"", // is_new_patch — fill manually or compare against your own patch-date list
 		match.Metadata.Map,
 		startingSide,
-		itoa(gamesPlayedToday(history, gameDate)),
+		itoa(rowGamesToday),
 
-		itoa(netWinstreak(history)),
+		itoa(rowStreak),
 		f2(allyAvgRank), f2(allyAvgACS), f2(allyAvgKD), f2(allyAvgEco),
 		itoa(ad), itoa(ai), itoa(ac), itoa(as), boolStr(allyHasHealer),
 
@@ -382,7 +516,7 @@ func buildRow(match MatchData, history []MatchData, rrByPUUID map[string]MMRSnap
 }
 
 // ---------------------------------------------------------------------------
-// HELPERS
+// PURE HELPERS (unchanged from before — operate on a single match only)
 // ---------------------------------------------------------------------------
 
 func splitTeams(players []Player) (allies, enemies []Player) {
@@ -399,11 +533,7 @@ func splitTeams(players []Player) (allies, enemies []Player) {
 func teamRed(players []Player) bool {
 	for _, p := range players {
 		if allyPUUIDs[p.Puuid] {
-			if p.Team == "Red" {
-				return true
-			} else {
-				return false
-			}
+			return p.Team == "Red"
 		}
 	}
 	return false
@@ -457,21 +587,23 @@ func avgEco(players []Player) float64 {
 	return sum / float64(len(players))
 }
 
-func avgRR(players []Player, rrByPUUID map[string]MMRSnapshot) (float64, bool) {
+// avgRR now reads directly from the incrementally-maintained puuid -> RR map
+// (state.RRByPUUID) instead of a per-run filesystem scan of MMR snapshots.
+func avgRR(players []Player, rrByPUUID map[string]float64) (float64, bool) {
 	if len(players) == 0 {
 		return 0, false
 	}
-	sum, count := 0, 0
+	sum, count := 0.0, 0
 	for _, p := range players {
-		if snap, ok := rrByPUUID[p.Puuid]; ok {
-			sum += snap.Data.CurrentData.RankingInTier
+		if v, ok := rrByPUUID[p.Puuid]; ok {
+			sum += v
 			count++
 		}
 	}
 	if count == 0 {
 		return 0, false
 	}
-	return float64(sum) / float64(count), true
+	return sum / float64(count), true
 }
 
 func rrOrBlank(v float64, found bool) string {
@@ -507,8 +639,6 @@ func hasHealer(players []Player) bool {
 }
 
 func allyWon(match MatchData, allies []Player) bool {
-	// Prefer the file's top-level hasWon flag — it's given directly and
-	// avoids any ambiguity about which color your team was.
 	return match.AnchorHasWon
 }
 
@@ -567,7 +697,7 @@ func parseTimestamp(unixSeconds int64) (date, timeOfDay, dayOfWeek string) {
 	if unixSeconds == 0 {
 		return "", "", ""
 	}
-	t := time.Unix(unixSeconds, 0).UTC() // adjust timezone below if you want local time
+	t := time.Unix(unixSeconds, 0).UTC()
 	date = t.Format("2006-01-02")
 	dayOfWeek = t.Weekday().String()
 	hour := t.Hour()
@@ -584,44 +714,6 @@ func parseTimestamp(unixSeconds int64) (date, timeOfDay, dayOfWeek string) {
 	return
 }
 
-func gamesPlayedToday(history []MatchData, date string) int {
-	count := 1
-	for _, m := range history {
-		d, _, _ := parseTimestamp(m.Metadata.GameStart)
-		if d == date {
-			count++
-		}
-	}
-	return count
-}
-
-func netWinstreak(history []MatchData) int {
-	streak := 0
-	for i := len(history) - 1; i >= 0; i-- {
-		m := history[i]
-		allies, _ := splitTeams(m.Players.AllPlayers)
-		won := allyWon(m, allies)
-		if streak == 0 {
-			if won {
-				streak = 1
-			} else {
-				streak = -1
-			}
-			continue
-		}
-		if (streak > 0 && won) || (streak < 0 && !won) {
-			if won {
-				streak++
-			} else {
-				streak--
-			}
-		} else {
-			break
-		}
-	}
-	return streak
-}
-
 func f2(v float64) string {
 	return strconv.FormatFloat(v, 'f', 2, 64)
 }
@@ -635,4 +727,196 @@ func boolStr(b bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// ---------------------------------------------------------------------------
+// DISCORD HTTP LAYER
+// ---------------------------------------------------------------------------
+
+type discordAttachment struct {
+	ID       string `json:"id"`
+	Filename string `json:"filename"`
+	URL      string `json:"url"`
+}
+
+type discordMessage struct {
+	ID          string              `json:"id"`
+	Attachments []discordAttachment `json:"attachments"`
+}
+
+// fetchDiscordMessagesAfter fetches a single page (up to 100) of messages
+// posted after the given snowflake, retrying on rate limits.
+func fetchDiscordMessagesAfter(client *http.Client, token, channelID, after string) ([]discordMessage, error) {
+	url := fmt.Sprintf("%s/channels/%s/messages?limit=100", discordAPIBase, channelID)
+	if after != "" {
+		url += "&after=" + after
+	}
+	for {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bot "+token)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == 429 {
+			resp.Body.Close()
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if resp.StatusCode != 200 {
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("discord API %d: %s", resp.StatusCode, string(b))
+		}
+		var msgs []discordMessage
+		err = json.NewDecoder(resp.Body).Decode(&msgs)
+		resp.Body.Close()
+		return msgs, err
+	}
+}
+
+// sortMessagesByIDAscending guarantees chronological processing order
+// regardless of what order the Discord API returns a page in — required for
+// the rolling-stat math to stay correct.
+func sortMessagesByIDAscending(msgs []discordMessage) {
+	for i := 1; i < len(msgs); i++ {
+		for j := i; j > 0; j-- {
+			a, _ := strconv.ParseUint(msgs[j-1].ID, 10, 64)
+			b, _ := strconv.ParseUint(msgs[j].ID, 10, 64)
+			if a > b {
+				msgs[j-1], msgs[j] = msgs[j], msgs[j-1]
+			} else {
+				break
+			}
+		}
+	}
+}
+
+func downloadDiscordAttachment(client *http.Client, url string) ([]byte, error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d fetching attachment", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+// loadLatestDiscordFile scans the most recent messages in a channel for an
+// attachment with the exact given filename and returns its bytes plus the
+// message ID it lived on (so the caller can delete it once superseded).
+func loadLatestDiscordFile(client *http.Client, token, channelID, filename string) ([]byte, string, bool, error) {
+	url := fmt.Sprintf("%s/channels/%s/messages?limit=50", discordAPIBase, channelID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, "", false, err
+	}
+	req.Header.Set("Authorization", "Bot "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, "", false, fmt.Errorf("discord API %d: %s", resp.StatusCode, string(b))
+	}
+
+	var msgs []discordMessage
+	if err := json.NewDecoder(resp.Body).Decode(&msgs); err != nil {
+		return nil, "", false, err
+	}
+
+	// Discord returns newest-first by default when no after/before is given,
+	// so the first match found is the current one.
+	for _, msg := range msgs {
+		for _, att := range msg.Attachments {
+			if att.Filename == filename {
+				body, err := downloadDiscordAttachment(client, att.URL)
+				if err != nil {
+					return nil, "", false, err
+				}
+				return body, msg.ID, true, nil
+			}
+		}
+	}
+	return nil, "", false, nil
+}
+
+// postDiscordMessageWithFile uploads data as a new message attachment and
+// returns the new message's ID.
+func postDiscordMessageWithFile(client *http.Client, token, channelID, filename string, data []byte) (string, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	payloadBytes, _ := json.Marshal(map[string]interface{}{"content": ""})
+	pw, err := w.CreateFormField("payload_json")
+	if err != nil {
+		return "", err
+	}
+	if _, err := pw.Write(payloadBytes); err != nil {
+		return "", err
+	}
+
+	fw, err := w.CreateFormFile("files[0]", filename)
+	if err != nil {
+		return "", err
+	}
+	if _, err := fw.Write(data); err != nil {
+		return "", err
+	}
+	if err := w.Close(); err != nil {
+		return "", err
+	}
+
+	url := fmt.Sprintf("%s/channels/%s/messages", discordAPIBase, channelID)
+	req, err := http.NewRequest("POST", url, &buf)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bot "+token)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		return "", fmt.Errorf("discord post %d: %s", resp.StatusCode, string(body))
+	}
+
+	var msg discordMessage
+	if err := json.Unmarshal(body, &msg); err != nil {
+		return "", err
+	}
+	return msg.ID, nil
+}
+
+func deleteDiscordMessage(client *http.Client, token, channelID, messageID string) error {
+	url := fmt.Sprintf("%s/channels/%s/messages/%s", discordAPIBase, channelID, messageID)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bot "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 204 && resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("discord delete %d: %s", resp.StatusCode, string(b))
+	}
+	return nil
 }
