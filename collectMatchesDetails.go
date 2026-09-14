@@ -974,7 +974,7 @@ func CollectMatchesData() {
 
 		set := false
 		for _, player := range data.Players.Blue {
-			if player.Puuid == "462a8089-15f8-5365-8e52-e0759a870abe" {
+			if player.Puuid == "462a8089-15f8-5365-8e52-e0759a870abe" || player.Puuid == "59bae8f3-025c-5dcc-9a1c-c903279e4145" || player.Puuid == "9ac37245-e47a-5977-9785-7c2590e2dcda" {
 				matchDetails.HasWon = data.Teams.Blue.HasWon
 				set = true
 				break // slightly optimized
