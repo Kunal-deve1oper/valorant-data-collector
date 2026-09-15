@@ -993,7 +993,7 @@ func CollectMatchesData() {
 		filename := matchID + ".json"
 
 		// 2. Upload to Discord
-		id, err := discord.PostMessageWithAttachment(&http.Client{}, botToken, channelID, filename, outputJSON, "a")
+		id, err := discord.PostMessageWithAttachment(&http.Client{}, botToken, channelID, filename, outputJSON, "")
 		if err != nil {
 			log.Printf("Failed to upload %s to Discord: %v", filename, err)
 			continue
