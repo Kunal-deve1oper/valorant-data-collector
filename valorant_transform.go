@@ -267,6 +267,11 @@ func Transform() {
 		w := csv.NewWriter(&outBuf)
 		w.Write(csvHeader)
 		w.Flush()
+	} else if outBuf.Len() > 0 {
+		b := outBuf.Bytes()
+		if b[len(b)-1] != '\n' {
+			outBuf.WriteByte('\n')
+		}
 	}
 	writer := csv.NewWriter(&outBuf)
 
